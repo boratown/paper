@@ -304,6 +304,9 @@
       background-repeat: no-repeat;
       backface-visibility: hidden;
       box-shadow: 0 0 1px rgba(0,0,0,0.3);
+      /* 찢어짐 및 틈새 방지 쉴드 */
+      border: 0.6px solid transparent;
+      box-sizing: border-box;
     }
 
     /* 뒷면 전용 스타일 */
@@ -695,7 +698,7 @@
               <span>수직 반 접기 (우반면)</span>
               <span id="val-v-fold">0°</span>
             </div>
-            <input type="range" id="slider-v-fold" min="0" max="180" value="0" class="sandbox-slider">
+            <input type="range" id="slider-v-fold" min="-180" max="180" value="0" class="sandbox-slider">
           </div>
 
           <div class="sandbox-control-group">
@@ -703,7 +706,7 @@
               <span>좌측 수평 접기 (상단)</span>
               <span id="val-lh-fold">0°</span>
             </div>
-            <input type="range" id="slider-lh-fold" min="0" max="180" value="0" class="sandbox-slider">
+            <input type="range" id="slider-lh-fold" min="-180" max="180" value="0" class="sandbox-slider">
           </div>
 
           <div class="sandbox-control-group">
@@ -711,7 +714,7 @@
               <span>우측 수평 접기 (상단)</span>
               <span id="val-rh-fold">0°</span>
             </div>
-            <input type="range" id="slider-rh-fold" min="0" max="180" value="0" class="sandbox-slider">
+            <input type="range" id="slider-rh-fold" min="-180" max="180" value="0" class="sandbox-slider">
           </div>
 
           <div class="sandbox-control-group">
@@ -719,7 +722,7 @@
               <span>좌측 대각선 모서리 접기</span>
               <span id="val-ld-fold">0°</span>
             </div>
-            <input type="range" id="slider-ld-fold" min="0" max="180" value="0" class="sandbox-slider">
+            <input type="range" id="slider-ld-fold" min="-180" max="180" value="0" class="sandbox-slider">
           </div>
 
           <div class="sandbox-control-group">
@@ -727,7 +730,7 @@
               <span>우측 대각선 모서리 접기</span>
               <span id="val-rd-fold">0°</span>
             </div>
-            <input type="range" id="slider-rd-fold" min="0" max="180" value="0" class="sandbox-slider">
+            <input type="range" id="slider-rd-fold" min="-180" max="180" value="0" class="sandbox-slider">
           </div>
         </div>
 
@@ -964,11 +967,13 @@
       
       document.querySelectorAll('.paper-face.front').forEach(face => {
         face.style.backgroundImage = `url(${dataUrl})`;
+        face.style.borderColor = fColor;
       });
 
       document.querySelectorAll('.paper-face.back').forEach(face => {
         face.style.backgroundColor = bColor;
         face.style.backgroundImage = 'none';
+        face.style.borderColor = bColor;
       });
     }
 
@@ -1314,14 +1319,14 @@
         slider = sliderLD;
         let delta = deltaX + deltaY;
         let newValue = startValue + delta * 0.5;
-        slider.value = Math.max(0, Math.min(180, newValue));
+        slider.value = Math.max(-180, Math.min(180, newValue));
         updateSandboxFolds();
         return;
       } else if (foldType === 'rd-fold') {
         slider = sliderRD;
         let delta = -deltaX + deltaY;
         let newValue = startValue + delta * 0.5;
-        slider.value = Math.max(0, Math.min(180, newValue));
+        slider.value = Math.max(-180, Math.min(180, newValue));
         updateSandboxFolds();
         return;
       }
@@ -1331,7 +1336,7 @@
       if (isInverse) change = -change;
       
       let newValue = startValue + change;
-      slider.value = Math.max(0, Math.min(180, newValue));
+      slider.value = Math.max(-180, Math.min(180, newValue));
       updateSandboxFolds();
     }
 
