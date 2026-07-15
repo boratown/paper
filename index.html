@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Three.js & OBJLoader CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
   
   <style>
     /* ----------------------------------
@@ -655,10 +658,11 @@
 
     <!-- 3D 뷰포트 (중앙) -->
     <main class="viewport" id="viewport">
-      <div class="viewport-grid"></div>
+      <!-- 3D 배경 Three.js 캔버스 -->
+      <canvas id="three-bg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;"></canvas>
       
       <!-- 3D 씬 컨테이너 -->
-      <div class="scene-container" id="scene-container">
+      <div class="scene-container" id="scene-container" style="z-index: 10;">
         <!-- 종이 세그먼트들이 JavaScript에 의해 여기에 동적으로 생성됩니다 -->
       </div>
     </main>
@@ -1208,6 +1212,178 @@
 
     function updateSceneRotation() {
       sceneContainer.style.transform = `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
+      
+      // Three.js 배경 회전 동기화
+      if (threeSceneGroup) {
+        threeSceneGroup.rotation.x = rotation.x * Math.PI / 180;
+        threeSceneGroup.rotation.y = rotation.y * Math.PI / 180;
+      }
+    }
+
+    /* ----------------------------------
+       Three.js 3D 배경 및 쉐이더 설정
+       ---------------------------------- */
+    let threeRenderer, threeScene, threeCamera, threeSceneGroup, skyMaterial;
+
+    function initThreeBg() {
+      const canvas = document.getElementById('three-bg');
+      if (!canvas) return;
+
+      // 1. 렌더러 생성
+      threeRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+      threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      // 2. 씬 및 카메라 세팅
+      threeScene = new THREE.Scene();
+      threeCamera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 1, 2000);
+      threeCamera.position.set(0, 0, 500);
+
+      // 3. 회전 동기화 그룹
+      threeSceneGroup = new THREE.Group();
+      threeScene.add(threeSceneGroup);
+
+      // 4. 조명 추가
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+      threeSceneGroup.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xfffaee, 0.95);
+      sunLight.position.set(200, 300, 100);
+      threeSceneGroup.add(sunLight);
+
+      // 5. 프롤로그 쉐이더 스카이 플레인 (Procedural Volumetric Clouds Sky Shader)
+      const skyGeo = new THREE.PlaneGeometry(2000, 2000);
+      skyMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { value: 0 },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float time;
+          varying vec2 vUv;
+
+          float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+          }
+
+          float noise(in vec2 p) {
+            vec2 i = floor(p);
+            vec2 f = fract(p);
+            vec2 u = f*f*(3.0-2.0*f);
+            return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
+                       mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
+          }
+
+          void main() {
+            vec3 skyColor = vec3(0.25, 0.55, 0.88);
+            vec3 horizonColor = vec3(0.92, 0.72, 0.55);
+            vec3 sunColor = vec3(1.0, 0.96, 0.82);
+
+            float vertical = vUv.y;
+            vec3 finalColor = mix(horizonColor, skyColor, vertical);
+
+            // 태양 광원 디스크
+            vec2 sunPos = vec2(0.75, 0.75);
+            float distToSun = length(vUv - sunPos);
+            float sunIntensity = exp(-distToSun * 4.0);
+            finalColor += sunColor * sunIntensity * 0.75;
+
+            // 이동형 구름 노이즈
+            vec2 cloudUv = vUv * vec2(3.0, 1.5) + vec2(time * 0.015, 0.0);
+            float n = noise(cloudUv) * 0.6 + noise(cloudUv * 2.0) * 0.3;
+            float cloudMask = smoothstep(0.46, 0.78, n) * (1.0 - exp(-vertical * 5.0));
+            
+            finalColor = mix(finalColor, vec3(1.0), cloudMask * 0.75);
+
+            gl_FragColor = vec4(finalColor, 1.0);
+          }
+        `
+      });
+      const skyMesh = new THREE.Mesh(skyGeo, skyMaterial);
+      skyMesh.position.set(0, 0, -850);
+      threeScene.add(skyMesh);
+
+      // 6. OBJ Loader로 3D 배경씬 로드
+      const loader = new THREE.OBJLoader();
+      loader.load('assets/scene.obj', (obj) => {
+        obj.traverse((child) => {
+          if (child.isMesh) {
+            child.geometry.computeBoundingBox();
+            const center = new THREE.Vector3();
+            child.geometry.boundingBox.getCenter(center);
+
+            if (center.z < -300) {
+              // 산맥: 고도 기반 만년설 쉐이더 적용
+              child.material = new THREE.ShaderMaterial({
+                uniforms: {
+                  baseColor: { value: new THREE.Color('#4A5663') },
+                  snowColor: { value: new THREE.Color('#FFFFFF') }
+                },
+                vertexShader: `
+                  varying float vHeight;
+                  void main() {
+                    vHeight = position.y;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                  }
+                `,
+                fragmentShader: `
+                  uniform vec3 baseColor;
+                  uniform vec3 snowColor;
+                  varying float vHeight;
+                  void main() {
+                    float factor = smoothstep(120.0, 240.0, vHeight);
+                    vec3 finalColor = mix(baseColor, snowColor, factor);
+                    gl_FragColor = vec4(finalColor, 1.0);
+                  }
+                `
+              });
+            } else if (center.y > 0) {
+              // 나뭇잎
+              const color = new THREE.Color(center.x > 0 ? '#1E5E35' : '#2D7F4A');
+              child.material = new THREE.MeshLambertMaterial({ color: color, flatShading: true });
+            } else if (center.y < -60) {
+              // 기둥 / 테이블 다리
+              const color = new THREE.Color(Math.abs(center.x) < 100 && Math.abs(center.z) < 100 ? '#634033' : '#42281D');
+              child.material = new THREE.MeshLambertMaterial({ color: color, flatShading: true });
+            } else {
+              // 테이블 상판: 나무 텍스처 맵핑
+              const woodTex = new THREE.TextureLoader().load('assets/paper_folding_bg.png');
+              child.material = new THREE.MeshLambertMaterial({ map: woodTex, flatShading: true });
+            }
+          }
+        });
+        threeSceneGroup.add(obj);
+      });
+
+      // 7. 애니메이션 루프 시작
+      animateThree();
+    }
+
+    const threeClock = new THREE.Clock();
+    function animateThree() {
+      requestAnimationFrame(animateThree);
+
+      const elapsed = threeClock.getElapsedTime();
+      if (skyMaterial) {
+        skyMaterial.uniforms.time.value = elapsed;
+      }
+
+      // 화면 크기 반응형 자동 감지 및 렌더 뷰 업데이트
+      const canvas = threeRenderer.domElement;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (canvas.width !== width || canvas.height !== height) {
+        threeRenderer.setSize(width, height, false);
+        threeCamera.aspect = width / height;
+        threeCamera.updateProjectionMatrix();
+      }
+
+      threeRenderer.render(threeScene, threeCamera);
     }
 
     /* ----------------------------------
@@ -1257,6 +1433,7 @@
 
     // 초기 기동
     document.addEventListener('DOMContentLoaded', () => {
+      initThreeBg(); // Three.js 3D 배경 기동
       setupEventListeners();
       updateSceneRotation();
       updateOrigamiView();
