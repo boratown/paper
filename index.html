@@ -1722,12 +1722,21 @@ f 244 243 242 241`;
     let threeRenderer, threeScene, threeCamera, threeSceneGroup, skyMaterial;
 
     function initThreeBg() {
+      if (typeof THREE === 'undefined') {
+        console.warn("Three.js가 로드되지 않았습니다. 3D 배경을 스킵합니다.");
+        return;
+      }
+      if (typeof THREE.OBJLoader === 'undefined') {
+        console.warn("THREE.OBJLoader가 로드되지 않았습니다. 3D 배경을 스킵합니다.");
+        return;
+      }
       const canvas = document.getElementById('three-bg');
       if (!canvas) return;
 
-      // 1. 렌더러 생성
-      threeRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-      threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      try {
+        // 1. 렌더러 생성
+        threeRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+        threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
       // 2. 씬 및 카메라 세팅
       threeScene = new THREE.Scene();
@@ -1855,14 +1864,18 @@ f 244 243 242 241`;
       threeSceneGroup.add(obj);
 
       // 7. 애니메이션 루프 시작
-      animateThree();
+        threeClock = new THREE.Clock();
+        animateThree();
+      } catch (err) {
+        console.error("Three.js WebGL 초기화 중 오류 발생:", err);
+      }
     }
 
-    const threeClock = new THREE.Clock();
+    let threeClock;
     function animateThree() {
       requestAnimationFrame(animateThree);
 
-      const elapsed = threeClock.getElapsedTime();
+      const elapsed = threeClock ? threeClock.getElapsedTime() : 0;
       if (skyMaterial) {
         skyMaterial.uniforms.time.value = elapsed;
       }
@@ -1927,10 +1940,19 @@ f 244 243 242 241`;
 
     // 초기 기동
     document.addEventListener('DOMContentLoaded', () => {
-      initThreeBg(); // Three.js 3D 배경 기동
-      setupEventListeners();
-      updateSceneRotation();
-      updateOrigamiView();
+      try {
+        initThreeBg(); // Three.js 3D 배경 기동
+      } catch (err) {
+        console.error("Three.js 3D 배경 초기화 실패 (우회 가동):", err);
+      }
+
+      try {
+        setupEventListeners();
+        updateSceneRotation();
+        updateOrigamiView();
+      } catch (err) {
+        console.error("오리가미 스튜디오 핵심 로직 기동 실패:", err);
+      }
     });
   </script>
 
