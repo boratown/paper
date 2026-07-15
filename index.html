@@ -257,8 +257,22 @@
       justify-content: center;
       cursor: grab;
       perspective: 1200px;
-      background: radial-gradient(circle at center, #1E293B 0%, #0F172A 100%);
+      background-image: url('assets/paper_folding_bg.png');
+      background-size: cover;
+      background-position: center;
       overflow: hidden;
+    }
+
+    .viewport::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.45) 100%);
+      pointer-events: none;
+      z-index: 2;
     }
 
     .viewport:active {
@@ -620,7 +634,8 @@
       <div class="panel-section">
         <h2 class="panel-title"><i class="fa-solid fa-wand-magic-sparkles"></i> 패턴 데코레이션</h2>
         <div class="pattern-grid">
-          <div class="pattern-card active" id="pat-solid" data-pattern="solid">단색</div>
+          <div class="pattern-card active" id="pat-banana" data-pattern="banana">나노 바나나</div>
+          <div class="pattern-card" id="pat-solid" data-pattern="solid">단색</div>
           <div class="pattern-card" id="pat-dots" data-pattern="dots">도트</div>
           <div class="pattern-card" id="pat-stripes" data-pattern="stripes">줄무늬</div>
           <div class="pattern-card" id="pat-grid" data-pattern="grid">모눈</div>
@@ -691,86 +706,18 @@
       <!-- 2. 자유 수동 접기 뷰 (샌드박스) -->
       <div id="sandbox-panel" style="display: none; flex-direction: column; gap: 24px; width: 100%;">
         <div class="panel-section">
-          <h2 class="panel-title"><i class="fa-solid fa-sliders"></i> 접기 조절 레버</h2>
-          
-          <div class="sandbox-control-group">
-            <div class="slider-header">
-              <span>수직 반 접기 (우반면)</span>
-              <span id="val-v-fold">0°</span>
-            </div>
-            <input type="range" id="slider-v-fold" min="-180" max="180" value="0" class="sandbox-slider">
+          <h2 class="panel-title"><i class="fa-solid fa-hand-fist"></i> 자유 터치 접기</h2>
+          <p style="font-size: 14px; line-height: 1.6; color: var(--text-muted); margin-bottom: 12px;">
+            복잡한 레버 조절 대신, 3D 화면 속 <strong>종이 면을 직접 클릭/드래그</strong>하여 원하는 대로 자연스럽게 접어보세요!
+          </p>
+          <div class="tip-box" style="background: rgba(59, 130, 246, 0.05); border-color: rgba(59, 130, 246, 0.2); color: #93C5FD; margin-bottom: 12px; font-size: 13px;">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>종이의 바깥 빈 영역을 드래그하면 카메라 각도를 돌려 볼 수 있습니다.</span>
           </div>
-
-          <div class="sandbox-control-group">
-            <div class="slider-header">
-              <span>좌측 수평 접기 (상단)</span>
-              <span id="val-lh-fold">0°</span>
-            </div>
-            <input type="range" id="slider-lh-fold" min="-180" max="180" value="0" class="sandbox-slider">
+          <div class="tip-box" style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.2); color: #A7F3D0; font-size: 13px;">
+            <i class="fa-solid fa-sun"></i>
+            <span>3D 음영 쉐이더가 적용되어 접히는 각도에 따라 그림자가 실시간으로 갱신됩니다.</span>
           </div>
-
-          <div class="sandbox-control-group">
-            <div class="slider-header">
-              <span>우측 수평 접기 (상단)</span>
-              <span id="val-rh-fold">0°</span>
-            </div>
-            <input type="range" id="slider-rh-fold" min="-180" max="180" value="0" class="sandbox-slider">
-          </div>
-
-          <div class="sandbox-control-group">
-            <div class="slider-header">
-              <span>좌측 대각선 모서리 접기</span>
-              <span id="val-ld-fold">0°</span>
-            </div>
-            <input type="range" id="slider-ld-fold" min="-180" max="180" value="0" class="sandbox-slider">
-          </div>
-
-          <div class="sandbox-control-group">
-            <div class="slider-header">
-              <span>우측 대각선 모서리 접기</span>
-              <span id="val-rd-fold">0°</span>
-            </div>
-            <input type="range" id="slider-rd-fold" min="-180" max="180" value="0" class="sandbox-slider">
-          </div>
-        </div>
-
-        <button class="btn btn-secondary" id="btn-reset-sandbox"><i class="fa-solid fa-undo"></i> 종이 초기화</button>
-      </div>
-
-      <div class="tip-box" style="background: rgba(245, 158, 11, 0.06); border-color: rgba(245, 158, 11, 0.2); color: #FDE68A; margin-top: auto;">
-        <i class="fa-solid fa-arrows-spin"></i>
-        <span>3D 화면을 드래그하면 접힌 입체 종이의 각도를 돌려서 볼 수 있습니다.</span>
-      </div>
-    </aside>
-
-  </div>
-
-  <!-- 오프스크린 캔버스 (패턴 및 텍스트 렌더링용) -->
-  <canvas id="texture-canvas" width="512" height="512" style="display: none;"></canvas>
-
-  <script>
-    /* ----------------------------------
-       전역 변수 및 상태 설정
-       ---------------------------------- */
-    let appMode = 'guide'; // 'guide' 또는 'sandbox'
-    let currentModel = 'heart';
-    let currentStep = 0;
-    let isAutoplay = false;
-    let autoplayTimer = null;
-
-    // 마우스/터치 드래그 Orbit 제어용 변수
-    let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
-    let rotation = { x: 30, y: -45, z: 0 }; // 초기 3D 회전 각도
-
-    // 마우스 드래그를 통한 직접 접기용 상태 변수
-    let isDraggingHandle = false;
-    let activeHandle = null;
-    let startMouseX = 0, startMouseY = 0;
-    let startValue = 0;
-
-
-    // DOM 참조
     const viewport = document.getElementById('viewport');
     const sceneContainer = document.getElementById('scene-container');
     const colorFront = document.getElementById('color-front');
@@ -790,19 +737,39 @@
     const btnSandboxMode = document.getElementById('btn-sandbox-mode');
     const guidePanel = document.getElementById('guide-panel');
     const sandboxPanel = document.getElementById('sandbox-panel');
-
-    const sliderV = document.getElementById('slider-v-fold');
-    const sliderLH = document.getElementById('slider-lh-fold');
-    const sliderRH = document.getElementById('slider-rh-fold');
-    const sliderLD = document.getElementById('slider-ld-fold');
-    const sliderRD = document.getElementById('slider-rd-fold');
     const btnResetSandbox = document.getElementById('btn-reset-sandbox');
+
+    // 나노 바나나 패턴 이미지 프리로드
+    const bananaImg = new Image();
+    bananaImg.src = 'assets/banana_pattern.png';
+    bananaImg.onload = () => {
+      renderTexture();
+    };
+
+    /* ----------------------------------
+       전역 변수 및 상태 설정
+       ---------------------------------- */
+    let appMode = 'guide'; // 'guide' 또는 'sandbox'
+    let currentModel = 'heart';
+    let currentStep = 0;
+    let isAutoplay = false;
+    let autoplayTimer = null;
+
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+    let rotation = { x: 30, y: -45, z: 0 };
+
+    let isDraggingPaper = false;
+    let activeFoldType = null;
+    let startMouseX = 0, startMouseY = 0;
+    let startAngleVal = 0;
+
+    let foldAngles = { v: 0, lh: 0, rh: 0, ld: 0, rd: 0 };
 
     /* ----------------------------------
        Origami 종이접기 모델 정의
        ---------------------------------- */
     const origamiModels = {
-      // 1. 하트 접기 기획 (5단계)
       heart: {
         steps: [
           {
@@ -845,8 +812,6 @@
           }
         ]
       },
-
-      // 2. 종이배 접기 기획 (5단계)
       boat: {
         steps: [
           {
@@ -892,29 +857,29 @@
       }
     };
 
-    /* ----------------------------------
-       오프스크린 캔버스 텍스처 페인팅 (동적 패턴/텍스트)
-       ---------------------------------- */
     function renderTexture() {
       const fColor = colorFront.value;
       const bColor = colorBack.value;
       const textVal = customText.value;
       
-      // 패턴 타입 구하기
-      let selectedPattern = 'solid';
+      let selectedPattern = 'banana';
       patternCards.forEach(card => {
         if (card.classList.contains('active')) {
           selectedPattern = card.dataset.pattern;
         }
       });
 
-      // 1. 앞면 텍스처 그리기
       ctx.fillStyle = fColor;
       ctx.fillRect(0, 0, 512, 512);
 
-      // 패턴 추가 그리기
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-      if (selectedPattern === 'dots') {
+      if (selectedPattern === 'banana' && bananaImg.complete) {
+        const pat = ctx.createPattern(bananaImg, 'repeat');
+        if (pat) {
+          ctx.fillStyle = pat;
+          ctx.fillRect(0, 0, 512, 512);
+        }
+      } else if (selectedPattern === 'dots') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
         for (let x = 16; x < 512; x += 32) {
           for (let y = 16; y < 512; y += 32) {
             ctx.beginPath();
@@ -946,7 +911,6 @@
         }
       }
 
-      // 커스텀 메시지 텍스트 맵핑
       if (textVal) {
         ctx.fillStyle = '#FFFFFF';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -962,7 +926,6 @@
         ctx.shadowBlur = 0;
       }
 
-      // 2. 3D 세그먼트 페이스 이미지 일괄 업데이트
       const dataUrl = textureCanvas.toDataURL();
       
       document.querySelectorAll('.paper-face.front').forEach(face => {
@@ -975,27 +938,21 @@
         face.style.backgroundImage = 'none';
         face.style.borderColor = bColor;
       });
+
+      apply3DShadingShader();
     }
 
-    /* ----------------------------------
-       3D 종이 조각(Segments) 조립 함수
-       ---------------------------------- */
     function createSegments(segmentConfigs) {
       sceneContainer.innerHTML = '';
-
       segmentConfigs.forEach(cfg => {
         const seg = document.createElement('div');
         seg.className = 'paper-segment';
         seg.id = `seg-${cfg.id}`;
-        
         seg.style.width = `${cfg.w}px`;
         seg.style.height = `${cfg.h}px`;
         seg.style.left = `${cfg.x}px`;
         seg.style.top = `${cfg.y}px`;
-        
-        if (cfg.origin) {
-          seg.style.transformOrigin = cfg.origin;
-        }
+        if (cfg.origin) seg.style.transformOrigin = cfg.origin;
 
         const front = document.createElement('div');
         front.className = 'paper-face front';
@@ -1005,539 +962,227 @@
         const back = document.createElement('div');
         back.className = 'paper-face back';
         seg.appendChild(back);
-
         sceneContainer.appendChild(seg);
 
-        requestAnimationFrame(() => {
-          if (cfg.transform) {
-            seg.style.transform = cfg.transform;
-          }
-        });
+        requestAnimationFrame(() => { if (cfg.transform) seg.style.transform = cfg.transform; });
       });
-
       renderTexture();
     }
 
-    /* ----------------------------------
-       자유 수동 접기 (샌드박스) 페이퍼 생성
-       ---------------------------------- */
     function renderSandboxPaper() {
       sceneContainer.innerHTML = '';
-      
-      // 1. 좌반면 (부모 베이스)
       const leftBase = document.createElement('div');
       leftBase.className = 'paper-segment';
       leftBase.id = 'sandbox-left-base';
       leftBase.style.width = '150px';
       leftBase.style.height = '300px';
-      leftBase.style.left = '0';
-      leftBase.style.top = '0';
       leftBase.style.transformStyle = 'preserve-3d';
 
-      // 좌반면 하단 (고정 바닥)
       const blFront = document.createElement('div');
       blFront.className = 'paper-face front';
-      blFront.style.height = '150px';
-      blFront.style.top = '150px';
-      blFront.style.backgroundPosition = '0px -150px';
+      blFront.style.height = '150px'; blFront.style.top = '150px'; blFront.style.backgroundPosition = '0px -150px';
       leftBase.appendChild(blFront);
-
       const blBack = document.createElement('div');
       blBack.className = 'paper-face back';
-      blBack.style.height = '150px';
-      blBack.style.top = '150px';
+      blBack.style.height = '150px'; blBack.style.top = '150px';
       leftBase.appendChild(blBack);
 
-      // 좌반면 상단 사분면 (접기 자식)
       const tlQuad = document.createElement('div');
       tlQuad.className = 'paper-segment';
       tlQuad.id = 'sandbox-tl-quad';
-      tlQuad.style.width = '150px';
-      tlQuad.style.height = '150px';
-      tlQuad.style.left = '0';
-      tlQuad.style.top = '0';
+      tlQuad.style.width = '150px'; tlQuad.style.height = '150px';
       tlQuad.style.transformOrigin = 'bottom center';
       tlQuad.style.transformStyle = 'preserve-3d';
-      tlQuad.style.transition = 'transform 0.5s ease-out';
 
-      // 좌반면 상단 사분면 고정 파트 (대각선 밑)
       const tlBodyFront = document.createElement('div');
       tlBodyFront.className = 'paper-face front';
       tlBodyFront.style.backgroundPosition = '0px 0px';
       tlBodyFront.style.clipPath = 'polygon(100% 0%, 100% 100%, 0% 100%)';
       tlQuad.appendChild(tlBodyFront);
 
-      const tlBodyBack = document.createElement('div');
-      tlBodyBack.className = 'paper-face back';
-      tlBodyBack.style.clipPath = 'polygon(100% 0%, 100% 100%, 0% 100%)';
-      tlQuad.appendChild(tlBodyBack);
-
-      // 좌반면 상단 사분면 접히는 귀 파트 (대각선 위)
       const tlCorner = document.createElement('div');
       tlCorner.className = 'paper-segment';
       tlCorner.id = 'sandbox-tl-corner';
-      tlCorner.style.width = '150px';
-      tlCorner.style.height = '150px';
-      tlCorner.style.left = '0';
-      tlCorner.style.top = '0';
-      tlCorner.style.transformOrigin = 'bottom right'; // 150px 150px
+      tlCorner.style.width = '150px'; tlCorner.style.height = '150px';
+      tlCorner.style.transformOrigin = 'bottom right';
       tlCorner.style.transformStyle = 'preserve-3d';
-      tlCorner.style.transition = 'transform 0.5s ease-out';
-
-      const tlCornerFront = document.createElement('div');
-      tlCornerFront.className = 'paper-face front';
-      tlCornerFront.style.backgroundPosition = '0px 0px';
-      tlCornerFront.style.clipPath = 'polygon(0% 0%, 100% 0%, 0% 100%)';
-      tlCorner.appendChild(tlCornerFront);
-
-      const tlCornerBack = document.createElement('div');
-      tlCornerBack.className = 'paper-face back';
-      tlCornerBack.style.clipPath = 'polygon(0% 0%, 100% 0%, 0% 100%)';
-      tlCorner.appendChild(tlCornerBack);
-
-      // 드래그 핸들 추가 (좌측 코너)
-      const handleLD = document.createElement('div');
-      handleLD.className = 'fold-handle';
-      handleLD.id = 'handle-ld-fold';
-      handleLD.style.left = '10px';
-      handleLD.style.top = '10px';
-      handleLD.innerHTML = '<i class="fa-solid fa-expand"></i>';
-      tlCorner.appendChild(handleLD);
-
       tlQuad.appendChild(tlCorner);
-
-      // 드래그 핸들 추가 (좌측 수평)
-      const handleLH = document.createElement('div');
-      handleLH.className = 'fold-handle';
-      handleLH.id = 'handle-lh-fold';
-      handleLH.style.left = '65px';
-      handleLH.style.top = '0px';
-      handleLH.innerHTML = '<i class="fa-solid fa-arrows-up-down"></i>';
-      tlQuad.appendChild(handleLH);
-
       leftBase.appendChild(tlQuad);
       sceneContainer.appendChild(leftBase);
 
-      // 2. 우반면 (수직 접기 자식)
       const rightHalf = document.createElement('div');
       rightHalf.className = 'paper-segment';
       rightHalf.id = 'sandbox-right-half';
-      rightHalf.style.width = '150px';
-      rightHalf.style.height = '300px';
+      rightHalf.style.width = '150px'; rightHalf.style.height = '300px';
       rightHalf.style.left = '150px';
-      rightHalf.style.top = '0';
       rightHalf.style.transformOrigin = 'left center';
       rightHalf.style.transformStyle = 'preserve-3d';
-      rightHalf.style.transition = 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
 
-      // 우반면 하단 사분면
       const brFront = document.createElement('div');
       brFront.className = 'paper-face front';
-      brFront.style.height = '150px';
-      brFront.style.top = '150px';
-      brFront.style.backgroundPosition = '-150px -150px';
+      brFront.style.height = '150px'; brFront.style.top = '150px'; brFront.style.backgroundPosition = '-150px -150px';
       rightHalf.appendChild(brFront);
 
-      const brBack = document.createElement('div');
-      brBack.className = 'paper-face back';
-      brBack.style.height = '150px';
-      brBack.style.top = '150px';
-      rightHalf.appendChild(brBack);
-
-      // 우반면 상단 사분면 (접기 자식)
       const trQuad = document.createElement('div');
       trQuad.className = 'paper-segment';
       trQuad.id = 'sandbox-tr-quad';
-      trQuad.style.width = '150px';
-      trQuad.style.height = '150px';
-      trQuad.style.left = '0';
-      trQuad.style.top = '0';
+      trQuad.style.width = '150px'; trQuad.style.height = '150px';
       trQuad.style.transformOrigin = 'bottom center';
       trQuad.style.transformStyle = 'preserve-3d';
-      trQuad.style.transition = 'transform 0.5s ease-out';
 
-      // 우반면 상단 사분면 고정 파트 (대각선 밑)
-      const trBodyFront = document.createElement('div');
-      trBodyFront.className = 'paper-face front';
-      trBodyFront.style.backgroundPosition = '-150px 0px';
-      trBodyFront.style.clipPath = 'polygon(0% 0%, 100% 100%, 0% 100%)';
-      trQuad.appendChild(trBodyFront);
-
-      const trBodyBack = document.createElement('div');
-      trBodyBack.className = 'paper-face back';
-      trBodyBack.style.clipPath = 'polygon(0% 0%, 100% 100%, 0% 100%)';
-      trQuad.appendChild(trBodyBack);
-
-      // 우반면 상단 사분면 접히는 귀 파트 (대각선 위)
       const trCorner = document.createElement('div');
       trCorner.className = 'paper-segment';
       trCorner.id = 'sandbox-tr-corner';
-      trCorner.style.width = '150px';
-      trCorner.style.height = '150px';
-      trCorner.style.left = '0';
-      trCorner.style.top = '0';
-      trCorner.style.transformOrigin = 'bottom left'; // 0px 150px
+      trCorner.style.width = '150px'; trCorner.style.height = '150px';
+      trCorner.style.transformOrigin = 'bottom left';
       trCorner.style.transformStyle = 'preserve-3d';
-      trCorner.style.transition = 'transform 0.5s ease-out';
-
-      const trCornerFront = document.createElement('div');
-      trCornerFront.className = 'paper-face front';
-      trCornerFront.style.backgroundPosition = '-150px 0px';
-      trCornerFront.style.clipPath = 'polygon(0% 0%, 100% 0%, 100% 100%)';
-      trCorner.appendChild(trCornerFront);
-
-      const trCornerBack = document.createElement('div');
-      trCornerBack.className = 'paper-face back';
-      trCornerBack.style.clipPath = 'polygon(0% 0%, 100% 0%, 100% 100%)';
-      trCorner.appendChild(trCornerBack);
-
-      // 드래그 핸들 추가 (우측 코너)
-      const handleRD = document.createElement('div');
-      handleRD.className = 'fold-handle';
-      handleRD.id = 'handle-rd-fold';
-      handleRD.style.right = '10px';
-      handleRD.style.top = '10px';
-      handleRD.innerHTML = '<i class="fa-solid fa-expand"></i>';
-      trCorner.appendChild(handleRD);
-
       trQuad.appendChild(trCorner);
-
-      // 드래그 핸들 추가 (우측 수평)
-      const handleRH = document.createElement('div');
-      handleRH.className = 'fold-handle';
-      handleRH.id = 'handle-rh-fold';
-      handleRH.style.left = '65px';
-      handleRH.style.top = '0px';
-      handleRH.innerHTML = '<i class="fa-solid fa-arrows-up-down"></i>';
-      trQuad.appendChild(handleRH);
-
       rightHalf.appendChild(trQuad);
-
-      // 드래그 핸들 추가 (수직)
-      const handleV = document.createElement('div');
-      handleV.className = 'fold-handle';
-      handleV.id = 'handle-v-fold';
-      handleV.style.right = '0px';
-      handleV.style.top = '140px';
-      handleV.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i>';
-      rightHalf.appendChild(handleV);
-
       sceneContainer.appendChild(rightHalf);
-
-      // 드래그 핸들 작동 바인딩
-      makeHandleDraggable(handleV, 'v-fold');
-      makeHandleDraggable(handleLH, 'lh-fold');
-      makeHandleDraggable(handleRH, 'rh-fold');
-      makeHandleDraggable(handleLD, 'ld-fold');
-      makeHandleDraggable(handleRD, 'rd-fold');
 
       renderTexture();
       updateSandboxFolds();
     }
 
-    /* ----------------------------------
-       핸들 직접 드래그 컨트롤 바인딩 함수
-       ---------------------------------- */
-    function makeHandleDraggable(handleEl, foldType) {
-      const onMouseDown = (e) => {
-        e.stopPropagation();
-        isDraggingHandle = true;
-        activeHandle = foldType;
-        
-        let clientX = e.clientX;
-        let clientY = e.clientY;
-        if (e.touches && e.touches[0]) {
-          clientX = e.touches[0].clientX;
-          clientY = e.touches[0].clientY;
-        }
-        
-        startMouseX = clientX;
-        startMouseY = clientY;
-        
-        let slider;
-        if (foldType === 'v-fold') slider = sliderV;
-        else if (foldType === 'lh-fold') slider = sliderLH;
-        else if (foldType === 'rh-fold') slider = sliderRH;
-        else if (foldType === 'ld-fold') slider = sliderLD;
-        else if (foldType === 'rd-fold') slider = sliderRD;
-        
-        startValue = parseFloat(slider.value);
-        
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-        document.addEventListener('touchmove', onTouchMove, { passive: false });
-        document.addEventListener('touchend', onTouchEnd);
-      };
-
-      const onMouseMove = (e) => {
-        if (!isDraggingHandle) return;
-        let deltaX = e.clientX - startMouseX;
-        let deltaY = e.clientY - startMouseY;
-        updateFoldByDelta(foldType, deltaX, deltaY);
-      };
-
-      const onMouseUp = () => {
-        isDraggingHandle = false;
-        activeHandle = null;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      };
-
-      const onTouchMove = (e) => {
-        if (!isDraggingHandle) return;
-        e.preventDefault();
-        const touch = e.touches[0];
-        let deltaX = touch.clientX - startMouseX;
-        let deltaY = touch.clientY - startMouseY;
-        updateFoldByDelta(foldType, deltaX, deltaY);
-      };
-
-      const onTouchEnd = () => {
-        isDraggingHandle = false;
-        activeHandle = null;
-        document.removeEventListener('touchmove', onTouchMove);
-        document.removeEventListener('touchend', onTouchEnd);
-      };
-
-      handleEl.addEventListener('mousedown', onMouseDown);
-      handleEl.addEventListener('touchstart', onMouseDown, { passive: true });
-    }
-
-    function updateFoldByDelta(foldType, deltaX, deltaY) {
-      let slider;
-      let multiplier = 0.7; // 드래그 감도
-      let isInverse = false;
-
-      if (foldType === 'v-fold') {
-        slider = sliderV;
-        isInverse = true;
-      } else if (foldType === 'lh-fold') {
-        slider = sliderLH;
-      } else if (foldType === 'rh-fold') {
-        slider = sliderRH;
-      } else if (foldType === 'ld-fold') {
-        slider = sliderLD;
-        let delta = deltaX + deltaY;
-        let newValue = startValue + delta * 0.5;
-        slider.value = Math.max(-180, Math.min(180, newValue));
-        updateSandboxFolds();
-        return;
-      } else if (foldType === 'rd-fold') {
-        slider = sliderRD;
-        let delta = -deltaX + deltaY;
-        let newValue = startValue + delta * 0.5;
-        slider.value = Math.max(-180, Math.min(180, newValue));
-        updateSandboxFolds();
-        return;
-      }
-
-      let delta = (foldType === 'v-fold') ? deltaX : deltaY;
-      let change = delta * multiplier;
-      if (isInverse) change = -change;
-      
-      let newValue = startValue + change;
-      slider.value = Math.max(-180, Math.min(180, newValue));
-      updateSandboxFolds();
-    }
-
-    /* ----------------------------------
-       수동 접기 슬라이더 갱신 함수
-       ---------------------------------- */
     function updateSandboxFolds() {
       if (appMode !== 'sandbox') return;
+      const v = foldAngles.v, lh = foldAngles.lh, rh = foldAngles.rh, ld = foldAngles.ld, rd = foldAngles.rd;
 
-      const vVal = sliderV.value;
-      const lhVal = sliderLH.value;
-      const rhVal = sliderRH.value;
-      const ldVal = sliderLD.value;
-      const rdVal = sliderRD.value;
+      document.getElementById('sandbox-right-half').style.transform = `rotateY(-${v}deg)`;
+      document.getElementById('sandbox-tl-quad').style.transform = `rotateX(-${lh}deg)`;
+      document.getElementById('sandbox-tr-quad').style.transform = `rotateX(-${rh}deg)`;
+      document.getElementById('sandbox-tl-corner').style.transform = `rotate3d(1, 1, 0, ${ld}deg)`;
+      document.getElementById('sandbox-tr-corner').style.transform = `rotate3d(1, -1, 0, ${rd}deg)`;
+      apply3DShadingShader();
+    }
 
-      document.getElementById('val-v-fold').innerText = `${vVal}°`;
-      document.getElementById('val-lh-fold').innerText = `${lhVal}°`;
-      document.getElementById('val-rh-fold').innerText = `${rhVal}°`;
-      document.getElementById('val-ld-fold').innerText = `${ldVal}°`;
-      document.getElementById('val-rd-fold').innerText = `${rdVal}°`;
+    function apply3DShadingShader() {
+      if (appMode !== 'sandbox') return;
+      const vRad = foldAngles.v * Math.PI / 180, lhRad = foldAngles.lh * Math.PI / 180, rhRad = foldAngles.rh * Math.PI / 180, ldRad = foldAngles.ld * Math.PI / 180, rdRad = foldAngles.rd * Math.PI / 180;
+      const L = { x: 0.35, y: 0.45, z: 0.82 };
+      const getBrightness = (N) => 0.72 + 0.33 * (N.x * L.x + N.y * L.y + N.z * L.z);
+      
+      setSegmentShading('sandbox-left-base', getBrightness({ x: 0, y: 0, z: 1 }));
+      setSegmentShading('sandbox-right-half', getBrightness({ x: -Math.sin(vRad), y: 0, z: Math.cos(vRad) }));
+      setSegmentShading('sandbox-tl-quad', getBrightness({ x: 0, y: Math.sin(lhRad), z: Math.cos(lhRad) }));
+      setSegmentShading('sandbox-tr-quad', getBrightness({ x: -Math.cos(rhRad) * Math.sin(vRad), y: Math.sin(rhRad), z: Math.cos(rhRad) * Math.cos(vRad) }));
+      setSegmentShading('sandbox-tl-corner', getBrightness({ x: -Math.sin(ldRad) / 1.414, y: -Math.sin(ldRad) / 1.414, z: Math.cos(ldRad) }));
+      setSegmentShading('sandbox-tr-corner', getBrightness({ x: Math.sin(rdRad) / 1.414 * Math.cos(vRad), y: -Math.sin(rdRad) / 1.414, z: Math.sin(rdRad) / 1.414 * Math.sin(vRad) + Math.cos(rdRad) * Math.cos(vRad) }));
+    }
 
-      // 1. 우반면 수직 회전 (Y축 회전)
-      const rHalf = document.getElementById('sandbox-right-half');
-      if (rHalf) {
-        rHalf.style.transform = `rotateY(-${vVal}deg)`;
-      }
-
-      // 2. 좌측 상단 사분면 수평 접기 (X축 회전)
-      const tlQ = document.getElementById('sandbox-tl-quad');
-      if (tlQ) {
-        tlQ.style.transform = `rotateX(-${lhVal}deg)`;
-      }
-
-      // 3. 우측 상단 사분면 수평 접기 (X축 회전)
-      const trQ = document.getElementById('sandbox-tr-quad');
-      if (trQ) {
-        trQ.style.transform = `rotateX(-${rhVal}deg)`;
-      }
-
-      // 4. 좌측 대각 귀 접기
-      const tlC = document.getElementById('sandbox-tl-corner');
-      if (tlC) {
-        // Hinge y = -x + 150. rotate3d(1, 1, 0, angle)
-        tlC.style.transform = `rotate3d(1, 1, 0, ${ldVal}deg)`;
-      }
-
-      // 5. 우측 대각 귀 접기
-      const trC = document.getElementById('sandbox-tr-corner');
-      if (trC) {
-        // Hinge y = x. rotate3d(1, -1, 0, angle)
-        trC.style.transform = `rotate3d(1, -1, 0, ${rdVal}deg)`;
-      }
+    function setSegmentShading(id, brightness) {
+      const seg = document.getElementById(id); if (!seg) return;
+      seg.querySelector('.front').style.filter = `brightness(${brightness})`;
+      seg.querySelector('.back').style.filter = `brightness(${Math.max(0.4, 1.4 - brightness)})`;
     }
 
     function resetSandboxSliders() {
-      sliderV.value = 0;
-      sliderLH.value = 0;
-      sliderRH.value = 0;
-      sliderLD.value = 0;
-      sliderRD.value = 0;
+      foldAngles = { v: 0, lh: 0, rh: 0, ld: 0, rd: 0 };
       updateSandboxFolds();
     }
 
-    /* ----------------------------------
-       가이드 제어 및 오리가미 구동 로직
-       ---------------------------------- */
     function updateOrigamiView() {
       if (appMode !== 'guide') return;
-
-      const model = origamiModels[currentModel];
-      const step = model.steps[currentStep];
-
+      document.querySelectorAll('.paper-face').forEach(f => f.style.filter = 'none');
+      const step = origamiModels[currentModel].steps[currentStep];
       stepNumber.innerText = `Step ${currentStep + 1}`;
-      stepProgress.innerText = `${currentStep + 1} / ${model.steps.length}`;
+      stepProgress.innerText = `${currentStep + 1} / ${origamiModels[currentModel].steps.length}`;
       stepInstruction.innerText = step.desc;
-
       step.setup();
-
       btnPrev.disabled = currentStep === 0;
-      btnNext.disabled = currentStep === model.steps.length - 1;
+      btnNext.disabled = currentStep === origamiModels[currentModel].steps.length - 1;
+      btnNext.innerHTML = currentStep === origamiModels[currentModel].steps.length - 1 ? `완성! <i class="fa-solid fa-check"></i>` : `다음 단계 <i class="fa-solid fa-arrow-right"></i>`;
+    }
 
-      if (currentStep === model.steps.length - 1) {
-        btnNext.innerHTML = `완성! <i class="fa-solid fa-check"></i>`;
-      } else {
-        btnNext.innerHTML = `다음 단계 <i class="fa-solid fa-arrow-right"></i>`;
-      }
+    function getFoldTypeFromElement(el) {
+      let cur = el;
+      while (cur && cur !== sceneContainer) {
+        if (cur.id === 'sandbox-tl-corner') return 'ld';
+        if (cur.id === 'sandbox-tr-corner') return 'rd';
+        if (cur.id === 'sandbox-tl-quad') return 'lh';
+        if (cur.id === 'sandbox-tr-quad') return 'rh';
+        if (cur.id === 'sandbox-right-half') return 'v';
+        cur = cur.parentElement;
+      } return null;
+    }
+
+    function onPaperMouseDown(e) {
+      if (appMode !== 'sandbox') return;
+      const type = getFoldTypeFromElement(e.target);
+      if (!type) return;
+      e.stopPropagation();
+      isDraggingPaper = true; activeFoldType = type;
+      startMouseX = e.clientX; startMouseY = e.clientY; startAngleVal = foldAngles[type];
+      document.addEventListener('mousemove', onPaperMouseMove);
+      document.addEventListener('mouseup', onPaperMouseUp);
+    }
+
+    function onPaperMouseMove(e) {
+      if (!isDraggingPaper) return;
+      updatePaperFoldByDelta(activeFoldType, e.clientX - startMouseX, e.clientY - startMouseY);
+    }
+
+    function onPaperMouseUp() {
+      isDraggingPaper = false; activeFoldType = null;
+      document.removeEventListener('mousemove', onPaperMouseMove);
+      document.removeEventListener('mouseup', onPaperMouseUp);
+    }
+
+    function onPaperTouchStart(e) {
+      if (appMode !== 'sandbox') return;
+      const type = getFoldTypeFromElement(e.target);
+      if (!type) return;
+      e.stopPropagation();
+      isDraggingPaper = true; activeFoldType = type;
+      startMouseX = e.touches[0].clientX; startMouseY = e.touches[0].clientY; startAngleVal = foldAngles[type];
+      document.addEventListener('touchmove', onPaperTouchMove, { passive: false });
+      document.addEventListener('touchend', onPaperTouchEnd);
+    }
+
+    function onPaperTouchMove(e) {
+      if (!isDraggingPaper) return;
+      e.preventDefault();
+      updatePaperFoldByDelta(activeFoldType, e.touches[0].clientX - startMouseX, e.touches[0].clientY - startMouseY);
+    }
+
+    function onPaperTouchEnd() {
+      isDraggingPaper = false; activeFoldType = null;
+      document.removeEventListener('touchmove', onPaperTouchMove);
+      document.removeEventListener('touchend', onPaperTouchEnd);
+    }
+
+    function updatePaperFoldByDelta(type, dX, dY) {
+      const radY = rotation.y * Math.PI / 180, radX = rotation.x * Math.PI / 180;
+      let change = 0, sens = 0.8;
+      if (type === 'v') change = -(dX * Math.cos(radY) + dY * Math.sin(radY)) * sens;
+      else if (type === 'lh' || type === 'rh') change = (dY * Math.cos(radX) - dX * Math.sin(radY) * Math.sin(radX)) * sens;
+      else if (type === 'ld') change = (dX * Math.cos(radY) + dY * Math.sin(radY) + dY * Math.cos(radX)) * 0.6;
+      else if (type === 'rd') change = (-dX * Math.cos(radY) - dY * Math.sin(radY) + dY * Math.cos(radX)) * 0.6;
+      foldAngles[type] = Math.max(-180, Math.min(180, startAngleVal + change));
+      updateSandboxFolds();
     }
 
     function setupEventListeners() {
-      // 모드 변경 제어 (스튜디오 가이드 <-> 자유 접기)
-      btnGuideMode.addEventListener('click', () => {
-        appMode = 'guide';
-        btnGuideMode.classList.add('active');
-        btnSandboxMode.classList.remove('active');
-        guidePanel.style.display = 'flex';
-        sandboxPanel.style.display = 'none';
-        stopAutoplay();
-        updateOrigamiView();
-      });
-
-      btnSandboxMode.addEventListener('click', () => {
-        appMode = 'sandbox';
-        btnGuideMode.classList.remove('active');
-        btnSandboxMode.classList.add('active');
-        guidePanel.style.display = 'none';
-        sandboxPanel.style.display = 'flex';
-        stopAutoplay();
-        resetSandboxSliders();
-        renderSandboxPaper();
-      });
-
-      // 1. 모델 선택 카드 클릭 이벤트
-      document.querySelectorAll('.origami-card').forEach(card => {
-        card.addEventListener('click', (e) => {
-          const targetCard = e.currentTarget;
-          document.querySelectorAll('.origami-card').forEach(c => c.classList.remove('active'));
-          targetCard.classList.add('active');
-          
-          currentModel = targetCard.dataset.model;
-          currentStep = 0;
-          stopAutoplay();
-          updateOrigamiView();
-        });
-      });
-
-      // 2. 가이드 내비게이션 버튼
-      btnPrev.addEventListener('click', () => {
-        if (currentStep > 0) {
-          currentStep--;
-          updateOrigamiView();
-        }
-      });
-
-      btnNext.addEventListener('click', () => {
-        const model = origamiModels[currentModel];
-        if (currentStep < model.steps.length - 1) {
-          currentStep++;
-          updateOrigamiView();
-        }
-      });
-
-      // 3. 패턴 데코레이션 카드 클릭 이벤트
-      patternCards.forEach(card => {
-        card.addEventListener('click', (e) => {
-          patternCards.forEach(c => c.classList.remove('active'));
-          e.target.classList.add('active');
-          renderTexture();
-        });
-      });
-
-      // 4. 실시간 디자인 입력 동기화
-      colorFront.addEventListener('input', renderTexture);
-      colorBack.addEventListener('input', renderTexture);
-      customText.addEventListener('input', renderTexture);
-
-      // 5. 자동 재생 토글
+      btnGuideMode.addEventListener('click', () => { appMode = 'guide'; btnGuideMode.classList.add('active'); btnSandboxMode.classList.remove('active'); guidePanel.style.display = 'flex'; sandboxPanel.style.display = 'none'; stopAutoplay(); updateOrigamiView(); });
+      btnSandboxMode.addEventListener('click', () => { appMode = 'sandbox'; btnGuideMode.classList.remove('active'); btnSandboxMode.classList.add('active'); guidePanel.style.display = 'none'; sandboxPanel.style.display = 'flex'; stopAutoplay(); resetSandboxSliders(); renderSandboxPaper(); });
+      sceneContainer.addEventListener('mousedown', onPaperMouseDown);
+      sceneContainer.addEventListener('touchstart', onPaperTouchStart, { passive: false });
+      document.querySelectorAll('.origami-card').forEach(c => c.addEventListener('click', (e) => { document.querySelectorAll('.origami-card').forEach(i => i.classList.remove('active')); e.currentTarget.classList.add('active'); currentModel = e.currentTarget.dataset.model; currentStep = 0; stopAutoplay(); updateOrigamiView(); }));
+      btnPrev.addEventListener('click', () => { if (currentStep > 0) { currentStep--; updateOrigamiView(); } });
+      btnNext.addEventListener('click', () => { if (currentStep < origamiModels[currentModel].steps.length - 1) { currentStep++; updateOrigamiView(); } });
+      patternCards.forEach(c => c.addEventListener('click', (e) => { patternCards.forEach(i => i.classList.remove('active')); e.currentTarget.classList.add('active'); renderTexture(); }));
+      colorFront.addEventListener('input', renderTexture); colorBack.addEventListener('input', renderTexture); customText.addEventListener('input', renderTexture);
       btnAutoplay.addEventListener('click', toggleAutoplay);
-
-      // 6. 자유 접기 슬라이더 동적 연동
-      const sliders = [sliderV, sliderLH, sliderRH, sliderLD, sliderRD];
-      sliders.forEach(slider => {
-        slider.addEventListener('input', updateSandboxFolds);
-      });
-
-      // 7. 자유 접기 초기화 버튼
       btnResetSandbox.addEventListener('click', resetSandboxSliders);
-
-      // 8. 드래그를 이용한 3D 카메라 뷰포트 회전 (Orbit control)
-      viewport.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        previousMousePosition = { x: e.clientX, y: e.clientY };
-      });
-
+      viewport.addEventListener('mousedown', (e) => { isDragging = true; previousMousePosition = { x: e.clientX, y: e.clientY }; });
       window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-
-        const deltaMove = {
-          x: e.clientX - previousMousePosition.x,
-          y: e.clientY - previousMousePosition.y
-        };
-
-        rotation.y += deltaMove.x * 0.5;
-        rotation.x -= deltaMove.y * 0.5;
-        rotation.x = Math.max(-80, Math.min(80, rotation.x));
-
-        updateSceneRotation();
-
-        previousMousePosition = { x: e.clientX, y: e.clientY };
+        rotation.y += (e.clientX - previousMousePosition.x) * 0.5;
+        rotation.x = Math.max(-80, Math.min(80, rotation.x - (e.clientY - previousMousePosition.y) * 0.5));
+        updateSceneRotation(); previousMousePosition = { x: e.clientX, y: e.clientY };
       });
-
-      window.addEventListener('mouseup', () => {
-        isDragging = false;
-      });
-
-      // 모바일 터치 드래그 지원
-      viewport.addEventListener('touchstart', (e) => {
-        isDragging = true;
-        const touch = e.touches[0];
-        previousMousePosition = { x: touch.clientX, y: touch.clientY };
-      });
-
+      window.addEventListener('mouseup', () => isDragging = false);
+      viewport.addEventListener('touchstart', (e) => { if (!isDraggingPaper) { isDragging = true; previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY }; } });
       window.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
         const touch = e.touches[0];
