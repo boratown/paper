@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오리가미 스튜디오 (Origami Studio) - 3D 종이접기 시뮬레이터</title>
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    /* ----------------------------------
+       디자인 테마 및 전역 스타일
+       ---------------------------------- */
+    :root {
+      --primary: #FF4A80;
+      --primary-glow: rgba(255, 74, 128, 0.4);
+      --bg: #0F172A;
+      --bg-panel: rgba(30, 41, 59, 0.7);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #F1F5F9;
+      --text-muted: #94A3B8;
+      
+      --font-outfit: 'Outfit', 'Noto Sans KR', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-outfit);
+      background-color: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ----------------------------------
+       상단 헤더
+       ---------------------------------- */
+    header {
+      height: 70px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 32px;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo i {
+      font-size: 24px;
+      color: var(--primary);
+      text-shadow: 0 0 10px var(--primary-glow);
+      transform: rotate(-10deg);
+    }
+
+    .logo h1 {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      background: linear-gradient(135deg, #FFF, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .mode-selector {
+      display: flex;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 4px;
+      border-radius: 30px;
+      border: 1px solid var(--border);
+    }
+
+    .mode-btn {
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .mode-btn.active {
+      background: var(--primary);
+      color: #FFF;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    /* ----------------------------------
+       메인 레이아웃
+       ---------------------------------- */
+    .app-layout {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 사이드 패널 기본 공통 */
+    .panel {
+      width: 360px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding: 24px;
+      z-index: 5;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+
+    .panel-right {
+      border-right: none;
+      border-left: 1px solid var(--border);
+    }
+
+    .panel-section {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-title {
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ----------------------------------
+       디자인 커스터마이저 (좌측)
+       ---------------------------------- */
+    .color-pickers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .color-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .color-box label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .color-input-wrapper {
+      position: relative;
+      height: 42px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .color-input-wrapper input[type="color"] {
+      position: absolute;
+      top: -5px;
+      left: -5px;
+      width: calc(100% + 10px);
+      height: calc(100% + 10px);
+      border: none;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .pattern-card {
+      height: 55px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      background-size: cover;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      background-color: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+    }
+
+    .pattern-card:hover {
+      border-color: rgba(255, 74, 128, 0.5);
+    }
+
+    .pattern-card.active {
+      border-color: var(--primary);
+      color: #FFF;
+      background-color: rgba(255, 74, 128, 0.1);
+    }
+
+    /* 패턴 프리뷰 백그라운드용 */
+    #pat-solid { background: radial-gradient(circle, #475569 100%, transparent 100%); }
+    #pat-dots { background-image: radial-gradient(rgba(255,255,255,0.2) 2px, transparent 2px); background-size: 8px 8px; }
+    #pat-stripes { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 4px, rgba(255,255,255,0.15) 4px, rgba(255,255,255,0.15) 8px); }
+    #pat-grid { background-image: linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 10px 10px; }
+
+    .form-control {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      height: 42px;
+      padding: 0 12px;
+      color: #FFF;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary);
+    }
+
+    /* ----------------------------------
+       중앙 3D 뷰포트
+       ---------------------------------- */
+    .viewport {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      perspective: 1200px;
+      background: radial-gradient(circle at center, #1E293B 0%, #0F172A 100%);
+      overflow: hidden;
+    }
+
+    .viewport:active {
+      cursor: grabbing;
+    }
+
+    /* 가이드 그리드 바닥 */
+    .viewport-grid {
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1.5px);
+      background-size: 32px 32px;
+      transform: rotateX(70deg) translateZ(-250px);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    /* ----------------------------------
+       3D 종이 오브젝트 컨테이너
+       ---------------------------------- */
+    .scene-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      transform-style: preserve-3d;
+      transition: transform 0.1s ease-out;
+    }
+
+    /* 3D 종이 모델 기본 셀 */
+    .paper-segment {
+      position: absolute;
+      transform-style: preserve-3d;
+      transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      backface-visibility: visible;
+    }
+
+    .paper-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background-size: 300px 300px;
+      background-repeat: no-repeat;
+      backface-visibility: hidden;
+      box-shadow: 0 0 1px rgba(0,0,0,0.3);
+    }
+
+    /* 뒷면 전용 스타일 */
+    .paper-face.back {
+      transform: rotateY(180deg);
+    }
+
+    /* 접히는 선 가이드 */
+    .crease-line {
+      position: absolute;
+      border: 1px dashed rgba(255, 255, 255, 0.45);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* ----------------------------------
+       오리가미 스튜디오 (우측)
+       ---------------------------------- */
+    .origami-select-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .origami-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .origami-card i {
+      font-size: 24px;
+      color: var(--text-muted);
+      transition: color 0.3s;
+    }
+
+    .origami-card span {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .origami-card:hover {
+      border-color: rgba(255, 74, 128, 0.4);
+      background: rgba(255, 74, 128, 0.03);
+    }
+
+    .origami-card.active {
+      border-color: var(--primary);
+      background: rgba(255, 74, 128, 0.08);
+      box-shadow: 0 4px 20px rgba(255, 74, 128, 0.15);
+    }
+
+    .origami-card.active i {
+      color: var(--primary);
+    }
+
+    /* 단계 표시 패널 */
+    .step-box {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .step-number {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .step-progress {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .step-instruction {
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 70px;
+    }
+
+    /* 네비게이션 버튼 */
+    .nav-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1.5fr;
+      gap: 12px;
+    }
+
+    .btn {
+      height: 44px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #FFF;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: #FF2E6D;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* 하단 가이드 팁 */
+    .tip-box {
+      background: rgba(59, 130, 246, 0.06);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+      color: #93C5FD;
+      display: flex;
+      gap: 10px;
+      line-height: 1.5;
+    }
+
+    .tip-box i {
+      margin-top: 2px;
+      font-size: 15px;
+    }
+
+    /* ----------------------------------
+       모바일 화면(360px) 최적화 반응형
+       ---------------------------------- */
+    @media (max-width: 1024px) {
+      body {
+        overflow-y: auto;
+        height: auto;
+      }
+      .app-layout {
+        flex-direction: column;
+        overflow: visible;
+      }
+      .panel {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        overflow-y: visible;
+      }
+      .viewport {
+        height: 400px;
+        min-height: 400px;
+      }
+      .panel-right {
+        border-left: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 헤더 -->
+  <header>
+    <div class="logo">
+      <i class="fa-solid fa-paper-plane"></i>
+      <h1>Origami Studio</h1>
+    </div>
+    <div class="mode-selector">
+      <button class="mode-btn active" id="btn-guide-mode">스튜디오 가이드</button>
+      <button class="mode-btn" id="btn-sandbox-mode">자유 접기</button>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 -->
+  <div class="app-layout">
+    
+    <!-- 디자인 커스터마이저 (좌측) -->
+    <aside class="panel">
+      <div class="panel-section">
+        <h2 class="panel-title"><i class="fa-solid fa-palette"></i> 종이 디자인 설정</h2>
+        <div class="color-pickers">
+          <div class="color-box">
+            <label>앞면 색상</label>
+            <div class="color-input-wrapper">
+              <input type="color" id="color-front" value="#FF4A80">
+            </div>
+          </div>
+          <div class="color-box">
+            <label>뒷면 색상</label>
+            <div class="color-input-wrapper">
+              <input type="color" id="color-back" value="#FFFFFF">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h2 class="panel-title"><i class="fa-solid fa-wand-magic-sparkles"></i> 패턴 데코레이션</h2>
+        <div class="pattern-grid">
+          <div class="pattern-card active" id="pat-solid" data-pattern="solid">단색</div>
+          <div class="pattern-card" id="pat-dots" data-pattern="dots">도트</div>
+          <div class="pattern-card" id="pat-stripes" data-pattern="stripes">줄무늬</div>
+          <div class="pattern-card" id="pat-grid" data-pattern="grid">모눈</div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h2 class="panel-title"><i class="fa-solid fa-font"></i> 종이 속 메시지</h2>
+        <input type="text" id="custom-text" class="form-control" placeholder="여기에 하고 싶은 말을 적으세요" maxlength="20">
+      </div>
+
+      <div class="tip-box">
+        <i class="fa-solid fa-info-circle"></i>
+        <span>입력한 색상, 패턴, 메시지는 실시간으로 3D 종이의 앞면 표면에 맵핑됩니다.</span>
+      </div>
+    </aside>
+
+    <!-- 3D 뷰포트 (중앙) -->
+    <main class="viewport" id="viewport">
+      <div class="viewport-grid"></div>
+      
+      <!-- 3D 씬 컨테이너 -->
+      <div class="scene-container" id="scene-container">
+        <!-- 종이 세그먼트들이 JavaScript에 의해 여기에 동적으로 생성됩니다 -->
+      </div>
+    </main>
+
+    <!-- 오리가미 스튜디오 (우측) -->
+    <aside class="panel panel-right">
+      <div class="panel-section">
+        <h2 class="panel-title"><i class="fa-solid fa-compass"></i> 접을 모델 선택</h2>
+        <div class="origami-select-grid">
+          <div class="origami-card active" data-model="heart">
+            <i class="fa-solid fa-heart"></i>
+            <span>사랑의 하트</span>
+          </div>
+          <div class="origami-card" data-model="boat">
+            <i class="fa-solid fa-ship"></i>
+            <span>바다 종이배</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h2 class="panel-title"><i class="fa-solid fa-list-check"></i> 접기 가이드</h2>
+        <div class="step-box">
+          <div class="step-header">
+            <span class="step-number" id="step-number">Step 1</span>
+            <span class="step-progress" id="step-progress">1 / 5</span>
+          </div>
+          <p class="step-instruction" id="step-instruction">
+            정사각형 종이를 준비합니다.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="nav-buttons">
+          <button class="btn btn-secondary" id="btn-prev" disabled><i class="fa-solid fa-arrow-left"></i> 이전</button>
+          <button class="btn btn-primary" id="btn-next">다음 단계 <i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+        <button class="btn btn-secondary" id="btn-autoplay" style="margin-top: 8px;"><i class="fa-solid fa-play"></i> 자동 재생</button>
+      </div>
+
+      <div class="tip-box" style="background: rgba(245, 158, 11, 0.06); border-color: rgba(245, 158, 11, 0.2); color: #FDE68A;">
+        <i class="fa-solid fa-arrows-spin"></i>
+        <span>3D 화면을 드래그하면 접힌 입체 종이의 각도를 돌려서 볼 수 있습니다.</span>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- 오프스크린 캔버스 (패턴 및 텍스트 렌더링용) -->
+  <canvas id="texture-canvas" width="512" height="512" style="display: none;"></canvas>
+
+  <script>
+    /* ----------------------------------
+       전역 변수 및 상태 설정
+       ---------------------------------- */
+    let currentModel = 'heart';
+    let currentStep = 0;
+    let isAutoplay = false;
+    let autoplayTimer = null;
+
+    // 마우스/터치 드래그 Orbit 제어용 변수
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+    let rotation = { x: 30, y: -45, z: 0 }; // 초기 3D 회전 각도
+
+    // DOM 참조
+    const viewport = document.getElementById('viewport');
+    const sceneContainer = document.getElementById('scene-container');
+    const colorFront = document.getElementById('color-front');
+    const colorBack = document.getElementById('color-back');
+    const customText = document.getElementById('custom-text');
+    const patternCards = document.querySelectorAll('.pattern-card');
+    const stepNumber = document.getElementById('step-number');
+    const stepProgress = document.getElementById('step-progress');
+    const stepInstruction = document.getElementById('step-instruction');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+    const btnAutoplay = document.getElementById('btn-autoplay');
+    const textureCanvas = document.getElementById('texture-canvas');
+    const ctx = textureCanvas.getContext('2d');
+
+    /* ----------------------------------
+       Origami 종이접기 모델 정의
+       ---------------------------------- */
+    const origamiModels = {
+      // 1. 하트 접기 기획 (5단계)
+      heart: {
+        steps: [
+          {
+            desc: "정사각형의 예쁜 종이를 평평하게 펼쳐 놓습니다.",
+            // flat segments
+            setup: () => createSegments([
+              { id: 'all', x: 0, y: 0, w: 300, h: 300, transform: '' }
+            ])
+          },
+          {
+            desc: "종이의 위쪽 절반을 아래쪽으로 절반 접어 직사각형을 만듭니다.",
+            setup: () => createSegments([
+              // Bottom half is static
+              { id: 'bottom', x: 0, y: 150, w: 300, h: 150, transform: '' },
+              // Top half folds down (rotates 180deg along its bottom hinge)
+              { id: 'top', x: 0, y: 0, w: 300, h: 150, origin: 'bottom center', transform: 'rotateX(-180deg)' }
+            ])
+          },
+          {
+            desc: "가운데 수직 중심선에 맞춰서, 왼쪽 절반과 오른쪽 절반을 각각 위쪽으로 비스듬히 접어 올립니다. 하트의 아래 뾰족한 기초 형태가 잡힙니다.",
+            setup: () => createSegments([
+              // Center crease: we have Left side folding up-right and Right side folding up-left
+              // Left half rotates 180deg around the diagonal or we fold it along the vertical center and rotate up
+              // In simplified 3D segments:
+              { id: 'left', x: 0, y: 0, w: 150, h: 300, origin: 'right center', transform: 'rotateZ(90deg) rotateX(180deg)' },
+              { id: 'right', x: 150, y: 0, w: 150, h: 300, origin: 'left center', transform: 'rotateZ(-90deg) rotateX(180deg)' }
+            ])
+          },
+          {
+            desc: "하트 상단의 뾰족한 봉우리 두 군데를 뒤쪽으로 아주 조금씩 접어 둥글게 다듬습니다.",
+            setup: () => createSegments([
+              // Top peaks fold down slightly
+              { id: 'left-body', x: 0, y: 0, w: 150, h: 300, origin: 'right center', transform: 'rotateZ(90deg) rotateX(180deg)' },
+              { id: 'right-body', x: 150, y: 0, w: 150, h: 300, origin: 'left center', transform: 'rotateZ(-90deg) rotateX(180deg)' },
+              // Tiny top flap segment on left body folding backward (Z-rotation fold)
+              { id: 'left-peak', x: 0, y: 0, w: 75, h: 75, origin: 'bottom center', transform: 'rotateZ(90deg) rotateX(240deg)' },
+              { id: 'right-peak', x: 225, y: 0, w: 75, h: 75, origin: 'bottom center', transform: 'rotateZ(-90deg) rotateX(240deg)' }
+            ])
+          },
+          {
+            desc: "완성! 좌우 양쪽 가장자리 끝 모서리도 뒤로 접어 하트의 부드러운 곡선 미를 살려줍니다. 정성을 가득 담아 하트 접기를 성공했습니다!",
+            setup: () => createSegments([
+              // Fully completed heart style
+              { id: 'left-body-final', x: 0, y: 0, w: 150, h: 300, origin: 'right center', transform: 'rotateZ(90deg) rotateX(180deg)' },
+              { id: 'right-body-final', x: 150, y: 0, w: 150, h: 300, origin: 'left center', transform: 'rotateZ(-90deg) rotateX(180deg)' },
+              // Side corners fold back
+              { id: 'left-side', x: 0, y: 100, w: 50, h: 100, origin: 'right center', transform: 'rotateY(-130deg)' },
+              { id: 'right-side', x: 250, y: 100, w: 50, h: 100, origin: 'left center', transform: 'rotateY(130deg)' }
+            ])
+          }
+        ]
+      },
+
+      // 2. 종이배 접기 기획 (5단계)
+      boat: {
+        steps: [
+          {
+            desc: "정사각형의 예쁜 종이를 준비해 평평하게 놓습니다.",
+            setup: () => createSegments([
+              { id: 'all', x: 0, y: 0, w: 300, h: 300, transform: '' }
+            ])
+          },
+          {
+            desc: "종이를 아래에서 위 방향으로 정확하게 절반을 올려 접습니다.",
+            setup: () => createSegments([
+              // Bottom folds up over top
+              { id: 'top-static', x: 0, y: 0, w: 300, h: 150, transform: '' },
+              { id: 'bottom-fold', x: 0, y: 150, w: 300, h: 150, origin: 'top center', transform: 'rotateX(180deg)' }
+            ])
+          },
+          {
+            desc: "직사각형의 위쪽 닫힌 모서리 좌우 끝부분을 중심선에 맞춰 삼각형 형태로 접어 내립니다.",
+            setup: () => createSegments([
+              { id: 'bottom-half-static', x: 0, y: 150, w: 300, h: 150, transform: '' },
+              // Left top corner folds down
+              { id: 'left-corner', x: 0, y: 0, w: 150, h: 150, origin: 'bottom right', transform: 'rotate3d(1, 1, 0, 180deg)' },
+              // Right top corner folds down
+              { id: 'right-corner', x: 150, y: 0, w: 150, h: 150, origin: 'bottom left', transform: 'rotate3d(1, -1, 0, 180deg)' }
+            ])
+          },
+          {
+            desc: "아래쪽에 남은 양면 종이 날개를 각각 앞뒤 위쪽으로 접어 올려 삼각형 모자를 만듭니다.",
+            setup: () => createSegments([
+              // Triangle body
+              { id: 'main-tri-left', x: 0, y: 0, w: 150, h: 150, origin: 'bottom right', transform: 'rotate3d(1, 1, 0, 180deg)' },
+              { id: 'main-tri-right', x: 150, y: 0, w: 150, h: 150, origin: 'bottom left', transform: 'rotate3d(1, -1, 0, 180deg)' },
+              // Front strip folds up
+              { id: 'strip-front', x: 0, y: 150, w: 300, h: 50, origin: 'top center', transform: 'rotateX(-180deg)' },
+              // Back strip folds up on the opposite side
+              { id: 'strip-back', x: 0, y: 150, w: 300, h: 50, origin: 'top center', transform: 'rotateX(180deg)' }
+            ])
+          },
+          {
+            desc: "완성! 삼각형 모자 안쪽을 넓게 펼쳐 마름모로 납작하게 만든 후 양 끝을 팽팽하게 잡아당겨 파도를 헤쳐 나갈 멋진 종이배를 만듭니다.",
+            setup: () => createSegments([
+              // Boat shape
+              { id: 'hull-left', x: 0, y: 100, w: 100, h: 100, origin: 'right center', transform: 'rotateY(-45deg)' },
+              { id: 'hull-right', x: 200, y: 100, w: 100, h: 100, origin: 'left center', transform: 'rotateY(45deg)' },
+              // Center sail standing up
+              { id: 'sail', x: 100, y: 50, w: 100, h: 150, origin: 'bottom center', transform: 'translateZ(10px) rotateX(15deg)' },
+              { id: 'hull-bottom', x: 100, y: 200, w: 100, h: 50, origin: 'top center', transform: 'rotateX(-60deg)' }
+            ])
+          }
+        ]
+      }
+    };
+
+    /* ----------------------------------
+       오프스크린 캔버스 텍스처 페인팅 (동적 패턴/텍스트)
+       ---------------------------------- */
+    function renderTexture() {
+      const fColor = colorFront.value;
+      const bColor = colorBack.value;
+      const textVal = customText.value;
+      
+      // 패턴 타입 구하기
+      let selectedPattern = 'solid';
+      patternCards.forEach(card => {
+        if (card.classList.contains('active')) {
+          selectedPattern = card.dataset.pattern;
+        }
+      });
+
+      // 1. 앞면 텍스처 그리기
+      ctx.fillStyle = fColor;
+      ctx.fillRect(0, 0, 512, 512);
+
+      // 패턴 추가 그리기
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      if (selectedPattern === 'dots') {
+        for (let x = 16; x < 512; x += 32) {
+          for (let y = 16; y < 512; y += 32) {
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      } else if (selectedPattern === 'stripes') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 6;
+        for (let i = -512; i < 512; i += 24) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i + 512, 512);
+          ctx.stroke();
+        }
+      } else if (selectedPattern === 'grid') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 512; i += 32) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, 512);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(512, i);
+          ctx.stroke();
+        }
+      }
+
+      // 커스텀 메시지 텍스트 맵핑
+      if (textVal) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 4;
+        ctx.font = 'bold 28px "Outfit", "Noto Sans KR"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // 중심부에 약간 각도를 주어 흘려 씀
+        ctx.save();
+        ctx.translate(256, 256);
+        ctx.rotate(-Math.PI / 12);
+        ctx.fillText(textVal, 0, 0);
+        ctx.restore();
+        ctx.shadowBlur = 0; // 그림자 리셋
+      }
+
+      // 2. 3D 세그먼트 페이스 이미지 일괄 업데이트
+      const dataUrl = textureCanvas.toDataURL();
+      
+      // 앞면 업데이트
+      document.querySelectorAll('.paper-face.front').forEach(face => {
+        face.style.backgroundImage = `url(${dataUrl})`;
+      });
+
+      // 뒷면 업데이트 (심플 단색)
+      document.querySelectorAll('.paper-face.back').forEach(face => {
+        face.style.backgroundColor = bColor;
+        face.style.backgroundImage = 'none';
+      });
+    }
+
+    /* ----------------------------------
+       3D 종이 조각(Segments) 조립 함수
+       ---------------------------------- */
+    function createSegments(segmentConfigs) {
+      sceneContainer.innerHTML = ''; // 초기화
+
+      segmentConfigs.forEach(cfg => {
+        const seg = document.createElement('div');
+        seg.className = 'paper-segment';
+        seg.id = `seg-${cfg.id}`;
+        
+        // 크기 및 위치 세팅
+        seg.style.width = `${cfg.w}px`;
+        seg.style.height = `${cfg.h}px`;
+        seg.style.left = `${cfg.x}px`;
+        seg.style.top = `${cfg.y}px`;
+        
+        // 회전 중심점(Hinge) 세팅
+        if (cfg.origin) {
+          seg.style.transformOrigin = cfg.origin;
+        }
+
+        // 앞면 생성
+        const front = document.createElement('div');
+        front.className = 'paper-face front';
+        // 전체 종이 크기인 300px 대비 이 세그먼트의 텍스처 오프셋 정렬
+        front.style.backgroundPosition = `-${cfg.x}px -${cfg.y}px`;
+        seg.appendChild(front);
+
+        // 뒷면 생성
+        const back = document.createElement('div');
+        back.className = 'paper-face back';
+        seg.appendChild(back);
+
+        sceneContainer.appendChild(seg);
+
+        // 애니메이션 효과를 위해 브라우저 렌더 큐 동기화 후 트랜스폼 설정
+        requestAnimationFrame(() => {
+          if (cfg.transform) {
+            seg.style.transform = cfg.transform;
+          }
+        });
+      });
+
+      // 텍스처를 새롭게 그려 세그먼트에 입힘
+      renderTexture();
+    }
+
+    /* ----------------------------------
+       가이드 제어 및 오리가미 구동 로직
+       ---------------------------------- */
+    function updateOrigamiView() {
+      const model = origamiModels[currentModel];
+      const step = model.steps[currentStep];
+
+      // 가이드 설명글 갱신
+      stepNumber.innerText = `Step ${currentStep + 1}`;
+      stepProgress.innerText = `${currentStep + 1} / ${model.steps.length}`;
+      stepInstruction.innerText = step.desc;
+
+      // 3D 세그먼트 생성 및 배치
+      step.setup();
+
+      // 버튼 제어
+      btnPrev.disabled = currentStep === 0;
+      btnNext.disabled = currentStep === model.steps.length - 1;
+
+      if (currentStep === model.steps.length - 1) {
+        btnNext.innerHTML = `완성! <i class="fa-solid fa-check"></i>`;
+      } else {
+        btnNext.innerHTML = `다음 단계 <i class="fa-solid fa-arrow-right"></i>`;
+      }
+    }
+
+    function setupEventListeners() {
+      // 1. 모델 선택 카드 클릭 이벤트
+      document.querySelectorAll('.origami-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          const targetCard = e.currentTarget;
+          document.querySelectorAll('.origami-card').forEach(c => c.classList.remove('active'));
+          targetCard.classList.add('active');
+          
+          currentModel = targetCard.dataset.model;
+          currentStep = 0;
+          stopAutoplay();
+          updateOrigamiView();
+        });
+      });
+
+      // 2. 가이드 내비게이션 버튼
+      btnPrev.addEventListener('click', () => {
+        if (currentStep > 0) {
+          currentStep--;
+          updateOrigamiView();
+        }
+      });
+
+      btnNext.addEventListener('click', () => {
+        const model = origamiModels[currentModel];
+        if (currentStep < model.steps.length - 1) {
+          currentStep++;
+          updateOrigamiView();
+        }
+      });
+
+      // 3. 패턴 데코레이션 카드 클릭 이벤트
+      patternCards.forEach(card => {
+        card.addEventListener('click', (e) => {
+          patternCards.forEach(c => c.classList.remove('active'));
+          e.target.classList.add('active');
+          renderTexture();
+        });
+      });
+
+      // 4. 실시간 디자인 입력 동기화
+      colorFront.addEventListener('input', renderTexture);
+      colorBack.addEventListener('input', renderTexture);
+      customText.addEventListener('input', renderTexture);
+
+      // 5. 자동 재생 토글
+      btnAutoplay.addEventListener('click', toggleAutoplay);
+
+      // 6. 드래그를 이용한 3D 카메라 뷰포트 회전 (Orbit control)
+      viewport.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const deltaMove = {
+          x: e.clientX - previousMousePosition.x,
+          y: e.clientY - previousMousePosition.y
+        };
+
+        // Y축 회전은 X축 드래그에 매칭, X축 회전은 Y축 드래그에 매칭
+        rotation.y += deltaMove.x * 0.5;
+        rotation.x -= deltaMove.y * 0.5;
+
+        // X축 극각 제한 (너무 뒤집어지지 않도록)
+        rotation.x = Math.max(-80, Math.min(80, rotation.x));
+
+        updateSceneRotation();
+
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // 모바일 터치 드래그 지원
+      viewport.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        const touch = e.touches[0];
+        previousMousePosition = { x: touch.clientX, y: touch.clientY };
+      });
+
+      window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+
+        const deltaMove = {
+          x: touch.clientX - previousMousePosition.x,
+          y: touch.clientY - previousMousePosition.y
+        };
+
+        rotation.y += deltaMove.x * 0.6;
+        rotation.x -= deltaMove.y * 0.6;
+        rotation.x = Math.max(-80, Math.min(80, rotation.x));
+
+        updateSceneRotation();
+
+        previousMousePosition = { x: touch.clientX, y: touch.clientY };
+      });
+
+      window.addEventListener('touchend', () => {
+        isDragging = false;
+      });
+      
+      // 모드 변경 탭 (데모용)
+      document.getElementById('btn-sandbox-mode').addEventListener('click', () => {
+        alert("자유 접기 모드는 가이드 단계 구애없이 슬라이더로 직접 각도를 꺾을 수 있는 Sandbox 기능입니다. 현재 데모에서는 스튜디오 가이드 모드로도 모든 종이접기 모션과 커스텀 디자인을 감상하실 수 있습니다!");
+      });
+    }
+
+    function updateSceneRotation() {
+      sceneContainer.style.transform = `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
+    }
+
+    /* ----------------------------------
+       자동화 시퀀스 재생 (Autoplay)
+       ---------------------------------- */
+    function toggleAutoplay() {
+      if (isAutoplay) {
+        stopAutoplay();
+      } else {
+        startAutoplay();
+      }
+    }
+
+    function startAutoplay() {
+      isAutoplay = true;
+      btnAutoplay.innerHTML = `<i class="fa-solid fa-pause"></i> 일시 정지`;
+      btnAutoplay.classList.add('btn-primary');
+      btnAutoplay.classList.remove('btn-secondary');
+      
+      const model = origamiModels[currentModel];
+      
+      // 첫 시작시 마지막 단계라면 1단계로 강제 리셋
+      if (currentStep === model.steps.length - 1) {
+        currentStep = 0;
+        updateOrigamiView();
+      }
+
+      autoplayTimer = setInterval(() => {
+        if (currentStep < model.steps.length - 1) {
+          currentStep++;
+          updateOrigamiView();
+        } else {
+          stopAutoplay();
+        }
+      }, 2500); // 2.5초 간격으로 진행
+    }
+
+    function stopAutoplay() {
+      isAutoplay = false;
+      btnAutoplay.innerHTML = `<i class="fa-solid fa-play"></i> 자동 재생`;
+      btnAutoplay.classList.add('btn-secondary');
+      btnAutoplay.classList.remove('btn-primary');
+      if (autoplayTimer) {
+        clearInterval(autoplayTimer);
+        autoplayTimer = null;
+      }
+    }
+
+    // 초기 기동
+    document.addEventListener('DOMContentLoaded', () => {
+      setupEventListeners();
+      updateSceneRotation();
+      updateOrigamiView();
+    });
+  </script>
+</body>
+</html>
