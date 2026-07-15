@@ -518,6 +518,37 @@
       transform: scale(1.2);
     }
 
+    /* 수동 드래그 폴딩 핸들 */
+    .fold-handle {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: var(--primary);
+      border: 2.5px solid #FFFFFF;
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--primary-glow);
+      cursor: grab;
+      z-index: 999;
+      transform: translateZ(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s, transform 0.2s;
+    }
+
+    .fold-handle:hover {
+      background: #FF2E6D;
+      transform: translateZ(15px) scale(1.3);
+      box-shadow: 0 0 16px var(--primary);
+    }
+
+    .fold-handle:active {
+      cursor: grabbing;
+      background: #FFFFFF;
+      border-color: var(--primary);
+    }
+
+
     /* ----------------------------------
        모바일 화면(360px) 최적화 반응형
        ---------------------------------- */
@@ -728,6 +759,13 @@
     let isDragging = false;
     let previousMousePosition = { x: 0, y: 0 };
     let rotation = { x: 30, y: -45, z: 0 }; // 초기 3D 회전 각도
+
+    // 마우스 드래그를 통한 직접 접기용 상태 변수
+    let isDraggingHandle = false;
+    let activeHandle = null;
+    let startMouseX = 0, startMouseY = 0;
+    let startValue = 0;
+
 
     // DOM 참조
     const viewport = document.getElementById('viewport');
@@ -1052,7 +1090,26 @@
       tlCornerBack.style.clipPath = 'polygon(0% 0%, 100% 0%, 0% 100%)';
       tlCorner.appendChild(tlCornerBack);
 
+      // 드래그 핸들 추가 (좌측 코너)
+      const handleLD = document.createElement('div');
+      handleLD.className = 'fold-handle';
+      handleLD.id = 'handle-ld-fold';
+      handleLD.style.left = '10px';
+      handleLD.style.top = '10px';
+      handleLD.innerHTML = '<i class="fa-solid fa-expand"></i>';
+      tlCorner.appendChild(handleLD);
+
       tlQuad.appendChild(tlCorner);
+
+      // 드래그 핸들 추가 (좌측 수평)
+      const handleLH = document.createElement('div');
+      handleLH.className = 'fold-handle';
+      handleLH.id = 'handle-lh-fold';
+      handleLH.style.left = '65px';
+      handleLH.style.top = '0px';
+      handleLH.innerHTML = '<i class="fa-solid fa-arrows-up-down"></i>';
+      tlQuad.appendChild(handleLH);
+
       leftBase.appendChild(tlQuad);
       sceneContainer.appendChild(leftBase);
 
@@ -1129,11 +1186,152 @@
       trCornerBack.style.clipPath = 'polygon(0% 0%, 100% 0%, 100% 100%)';
       trCorner.appendChild(trCornerBack);
 
+      // 드래그 핸들 추가 (우측 코너)
+      const handleRD = document.createElement('div');
+      handleRD.className = 'fold-handle';
+      handleRD.id = 'handle-rd-fold';
+      handleRD.style.right = '10px';
+      handleRD.style.top = '10px';
+      handleRD.innerHTML = '<i class="fa-solid fa-expand"></i>';
+      trCorner.appendChild(handleRD);
+
       trQuad.appendChild(trCorner);
+
+      // 드래그 핸들 추가 (우측 수평)
+      const handleRH = document.createElement('div');
+      handleRH.className = 'fold-handle';
+      handleRH.id = 'handle-rh-fold';
+      handleRH.style.left = '65px';
+      handleRH.style.top = '0px';
+      handleRH.innerHTML = '<i class="fa-solid fa-arrows-up-down"></i>';
+      trQuad.appendChild(handleRH);
+
       rightHalf.appendChild(trQuad);
+
+      // 드래그 핸들 추가 (수직)
+      const handleV = document.createElement('div');
+      handleV.className = 'fold-handle';
+      handleV.id = 'handle-v-fold';
+      handleV.style.right = '0px';
+      handleV.style.top = '140px';
+      handleV.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i>';
+      rightHalf.appendChild(handleV);
+
       sceneContainer.appendChild(rightHalf);
 
+      // 드래그 핸들 작동 바인딩
+      makeHandleDraggable(handleV, 'v-fold');
+      makeHandleDraggable(handleLH, 'lh-fold');
+      makeHandleDraggable(handleRH, 'rh-fold');
+      makeHandleDraggable(handleLD, 'ld-fold');
+      makeHandleDraggable(handleRD, 'rd-fold');
+
       renderTexture();
+      updateSandboxFolds();
+    }
+
+    /* ----------------------------------
+       핸들 직접 드래그 컨트롤 바인딩 함수
+       ---------------------------------- */
+    function makeHandleDraggable(handleEl, foldType) {
+      const onMouseDown = (e) => {
+        e.stopPropagation();
+        isDraggingHandle = true;
+        activeHandle = foldType;
+        
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        if (e.touches && e.touches[0]) {
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        }
+        
+        startMouseX = clientX;
+        startMouseY = clientY;
+        
+        let slider;
+        if (foldType === 'v-fold') slider = sliderV;
+        else if (foldType === 'lh-fold') slider = sliderLH;
+        else if (foldType === 'rh-fold') slider = sliderRH;
+        else if (foldType === 'ld-fold') slider = sliderLD;
+        else if (foldType === 'rd-fold') slider = sliderRD;
+        
+        startValue = parseFloat(slider.value);
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('touchmove', onTouchMove, { passive: false });
+        document.addEventListener('touchend', onTouchEnd);
+      };
+
+      const onMouseMove = (e) => {
+        if (!isDraggingHandle) return;
+        let deltaX = e.clientX - startMouseX;
+        let deltaY = e.clientY - startMouseY;
+        updateFoldByDelta(foldType, deltaX, deltaY);
+      };
+
+      const onMouseUp = () => {
+        isDraggingHandle = false;
+        activeHandle = null;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      const onTouchMove = (e) => {
+        if (!isDraggingHandle) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        let deltaX = touch.clientX - startMouseX;
+        let deltaY = touch.clientY - startMouseY;
+        updateFoldByDelta(foldType, deltaX, deltaY);
+      };
+
+      const onTouchEnd = () => {
+        isDraggingHandle = false;
+        activeHandle = null;
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+      };
+
+      handleEl.addEventListener('mousedown', onMouseDown);
+      handleEl.addEventListener('touchstart', onMouseDown, { passive: true });
+    }
+
+    function updateFoldByDelta(foldType, deltaX, deltaY) {
+      let slider;
+      let multiplier = 0.7; // 드래그 감도
+      let isInverse = false;
+
+      if (foldType === 'v-fold') {
+        slider = sliderV;
+        isInverse = true;
+      } else if (foldType === 'lh-fold') {
+        slider = sliderLH;
+      } else if (foldType === 'rh-fold') {
+        slider = sliderRH;
+      } else if (foldType === 'ld-fold') {
+        slider = sliderLD;
+        let delta = deltaX + deltaY;
+        let newValue = startValue + delta * 0.5;
+        slider.value = Math.max(0, Math.min(180, newValue));
+        updateSandboxFolds();
+        return;
+      } else if (foldType === 'rd-fold') {
+        slider = sliderRD;
+        let delta = -deltaX + deltaY;
+        let newValue = startValue + delta * 0.5;
+        slider.value = Math.max(0, Math.min(180, newValue));
+        updateSandboxFolds();
+        return;
+      }
+
+      let delta = (foldType === 'v-fold') ? deltaX : deltaY;
+      let change = delta * multiplier;
+      if (isInverse) change = -change;
+      
+      let newValue = startValue + change;
+      slider.value = Math.max(0, Math.min(180, newValue));
       updateSandboxFolds();
     }
 
