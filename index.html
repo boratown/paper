@@ -260,9 +260,7 @@
       justify-content: center;
       cursor: grab;
       perspective: 1200px;
-      background-image: url('assets/paper_folding_bg.png');
-      background-size: cover;
-      background-position: center;
+      background: #0b0f19;
       overflow: hidden;
     }
 
@@ -1351,9 +1349,8 @@
               const color = new THREE.Color(Math.abs(center.x) < 100 && Math.abs(center.z) < 100 ? '#634033' : '#42281D');
               child.material = new THREE.MeshLambertMaterial({ color: color, flatShading: true });
             } else {
-              // 테이블 상판: 나무 텍스처 맵핑
-              const woodTex = new THREE.TextureLoader().load('assets/paper_folding_bg.png');
-              child.material = new THREE.MeshLambertMaterial({ map: woodTex, flatShading: true });
+              // 테이블 상판: 원목 갈색 솔리드 적용 (텍스처 이미지 불필요)
+              child.material = new THREE.MeshLambertMaterial({ color: 0x5c3d24, flatShading: true });
             }
           }
         });
